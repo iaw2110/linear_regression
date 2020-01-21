@@ -1,0 +1,116 @@
+---
+title: "Homework 7"
+author: "Ivan Wolansky"
+date: "11/19/2019"
+output: pdf_document
+---
+
+9.9 a.
+
+```{r}
+# All Subsets Regression function from lecture
+leaps.lm <- function(formula.lm, data){
+    library(leaps)
+    library(nlme)
+    library(DAAG)
+    model.lm <- lm(formula.lm, data=data, x=TRUE, y=TRUE)
+    xx <- model.lm$x[,-1]
+    yy <- model.lm$y
+    
+    var.names <- colnames(xx)
+    
+    leaps.lm.temp <- summary(regsubsets(x=xx, y=yy, nbest=2^ncol(xx), nvmax=2^ncol(xx),
+                                method="exhaustive", all.best=TRUE, really.big=T))    
+    
+    aic.list <- rep(0, nrow(leaps.lm.temp$which))
+    bic.list <- rep(0, nrow(leaps.lm.temp$which))
+    press.list <- rep(0, nrow(leaps.lm.temp$which))
+    model.name <- rep(0, nrow(leaps.lm.temp$which))
+    models.try <- leaps.lm.temp$which[,-1]
+    model.size <- rowSums(as.matrix(models.try))
+    
+    for(i in 1:length(aic.list)){
+        matrix.temp <- as.data.frame(cbind(yy, xx[, (1:ncol(xx))[models.try[i,]]]))
+        colnames(matrix.temp)[1] <- "y"
+        cur.model <- lm(y~., data=matrix.temp)
+        aic.list[i] <- extractAIC(cur.model)[2]
+        bic.list[i] <- aic.list[i]-2*model.size[i]+log(nrow(xx))*model.size[i]
+        press.list[i] <- press(cur.model)
+        model.name[i] <- paste(var.names[models.try[i,]], collapse=" ")
+    }
+
+    
+    results.leaps <- data.frame(model.name, model.size , leaps.lm.temp$rss, 
+                                leaps.lm.temp$rsq, leaps.lm.temp$adjr2, leaps.lm.temp$cp, 
+                                aic.list, bic.list, press.list)
+    colnames(results.leaps) <- c("model", "size", "SSE", "r2", "adjr2", "Cp", 
+                                 "aic", "bic", "press")
+    return(results.leaps)
+}
+```
+
+```{r}
+df <- read.table("CH06PR15.txt", header = FALSE, col.names = c("Y", "X1", "X2", "X3"))
+
+lm0 <- lm(Y ~ X1 + X3 + X2, data=df)
+
+leaps.lm(lm0, df)
+```
+
+1) According to $R^{2}_{a,p}$, the best subset for predicting patient satisfaction is the model with patient age (X1) and anxiety level (X3) because its Adjusted $R^{2}$ is the highest.
+2) According to $AIC_{p}$, the best subset for predicting patient satisfaction is the model with patient age (X1) and anxiety level (X3) because its $AIC_{p}$ is the lowest.
+3) According to $C_{p}$, the best subset for predicting patient satisfaction is the model with patient age (X1) and anxiety level (X3) because its $C_{p}$ is the lowest.
+4) According to $PRESS_{p}$, the best subset for predicting patient satisfaction is the model with patient age (X1) and anxiety level (X3) because its $PRESS_{p}$ is the lowest.
+
+
+9.9 b.
+
+The four criteria, $R^{2}_{a,p}$, $AIC_{p}$, $C_{p}$, and $PRESS_{p}$ do identify the same best subset. This does not always happen; sometimes there are diferrences between what these criteria identify as the best subset. Typically, there is some difference in what the best model is according to these criteria, which allows us to select a group of possible models to study more deeply in order to determine which one is truly "best." In this case, however, all of these criteria are pointing to the same "best" model.
+
+9.17 a.
+
+```{r}
+library(MASS)
+null <- lm(Y~1, data=df)
+full <- lm(Y~., data=df)
+
+addterm(object=null, scope=full, test="F")
+```
+
+
+After step 1, no variable can be dropped since no F values < 2.9, but we can add the term with the highest F value, which is X1.
+
+
+```{r}
+forward_step_regression <- update(null, .~. + X1)
+addterm(forward_step_regression, scope = full, test="F")
+
+```
+
+```{r}
+dropterm(forward_step_regression, test="F")
+```
+
+
+Again, we can't drop any variables since no F value < 2.9, but we can add the term with the highest F value, which is X3.
+
+
+```{r}
+forward_step_regression <- update(forward_step_regression, .~. + X3)
+addterm(forward_step_regression, scope = full, test="F")
+
+```
+
+```{r}
+dropterm(forward_step_regression, test="F")
+```
+
+
+At this point, nothing can be dropped because nothing has an F value < 2.9, but X2 can't be added because it's F value is 0.8072, which is not greater than 3. Therefore, we conclude that the final model only has X1 and X3 in it.
+
+
+\textbf{Note: Below is the entire above procedure in one function call; I just wanted to make sure that I understood exactly how this process worked at each step.}
+
+```{r}
+step(null, scope=list(lower=null, upper=full), direction="both", trace=TRUE, test="F")
+```

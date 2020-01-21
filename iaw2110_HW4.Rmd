@@ -1,0 +1,207 @@
+---
+title: "Homework 4"
+author: "Ivan Wolansky"
+date: "October 25, 2019"
+output: pdf_document
+---
+
+5.25 a.
+```{r}
+df <- read.table("CH01PR21.txt", header = FALSE, col.names = c("Y", "X"))
+
+# (1)
+X <- cbind(rep(1, length(df$X)), df$X)
+X_t <- t(X)
+X_tX <- X_t %*% X
+inverse_X_tX <- solve(X_tX)
+inverse_X_tX
+
+# (2)
+X_tY <- X_t %*% df$Y
+b <- inverse_X_tX %*% X_tY
+b
+
+# (3)
+e <- df$Y - (X %*% b)
+e
+
+# (4)
+H <- X %*% inverse_X_tX %*% X_t
+H
+
+# (5)
+Y_t <- t(df$Y)
+b_t <- t(b)
+sse <- (Y_t %*% df$Y) - (b_t %*% X_t %*% df$Y)
+sse
+
+# (6)
+degrees_freedom <- length(df$X) - 2
+mse <- sse / degrees_freedom
+mse <- as.vector(mse)
+s2b <- mse * inverse_X_tX
+s2b
+
+# (7)
+X_h <- matrix(c(1,2))
+X_h_t <- t(X_h)
+Y_h <- X_h_t %*% b
+Y_h
+
+# (8)
+s2Y_h <- X_h_t %*% s2b %*% X_h
+s2Y_h
+```
+(1) is $$(X'X)^{-1} = \begin{bmatrix} 
+0.2 & -0.1 \\
+-0.1 & 0.1 
+\end{bmatrix}$$
+
+(2) is $$b = \begin{bmatrix} 
+10.2 \\
+4.0 
+\end{bmatrix}$$
+
+(3) is $$e = \begin{bmatrix} 
+1.8 \\
+-1.2 \\
+-1.2 \\
+1.8 \\
+-0.2 \\
+-1.2 \\
+-2.2 \\
+0.8 \\
+0.8 \\
+0.8
+\end{bmatrix}$$
+
+(4) is $$H = \begin{bmatrix} 
+0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1\\
+0.1 & 0.2 & 0.0 & 0.2 & -0.1 & 0.1 & 0.2 & 0.1 & 0.0 & 0.2\\
+0.1 & 0.0 & 0.2 & 0.0 & 0.3 & 0.1 & 0.0 & 0.1 & 0.2 & 0.0\\
+0.1 & 0.2 & 0.0 & 0.2 & -0.1 & 0.1 & 0.2 & 0.1 & 0.0 & 0.2\\
+0.1 & -0.1 & 0.3 & -0.1 & 0.5 & 0.1 & -0.1 & 0.1 & 0.3 & -0.1\\
+0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1\\
+0.1 & 0.2 & 0.0 & 0.2 & -0.1 & 0.1 & 0.2 & 0.1 & 0.0 & 0.2\\
+0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 & 0.1\\
+0.1 & 0.0 & 0.2 & 0.0 & 0.3 & 0.1 & 0.0 & 0.1 & 0.2 & 0.0\\
+0.1 & 0.2 & 0.0 & 0.2 & -0.1 & 0.1 & 0.2 & 0.1 & 0.0 & 0.2
+\end{bmatrix}$$
+
+(5) is $SSE = 17.6$
+
+(6) is $$s^{2}\{b\} = \begin{bmatrix} 
+0.44 & -0.22 \\
+-0.22 & 0.22 
+\end{bmatrix}$$
+
+(7) is $$\hat Y_{h} = 18.2$$
+
+(8) is $$s^{2}\{\hat Y_{h}\} = 0.44$$
+
+5.25 c.
+```{r}
+J <- matrix(1, nrow = dim(H)[1], ncol = dim(H)[2])
+A <- (H - (1/length(J[,1])) * J)
+A
+```
+The matrix of the quadratic form of SSR is A which is directly above.
+
+6.15 b.
+```{r}
+df <- read.table("CH06PR15.txt", header = FALSE, col.names = c("Satisfaction", "Patient Age (Years)", "Severity of Illness", "Anxiety Level"))
+
+pairs(df, main="Scatter Plot Matrix")
+correlation_matrix <- cor(df)
+correlation_matrix
+```
+
+From these matrices, we can see a high negative correlation between patient satistfaction and patient age, meaning that the younger the patient, the more satisfied they were with the care they received. Similarly, there is a negative correlation between satisfaction and severity of illness and satisfaction and anxiety level, but the correlation is not as strong. Generally, the more severe the illness, the lower satisfaction, and the higher the anxiety, the lower satisfaction. We also see a medium positive correlation between patient age and severity of illness, and patient age and anxiety level. This means that generally, the older the patient was, the more severe the illness, and the older the patient was, the higher the anxiety level. Finally, we can see that there is a reasonably strong positive correlation between severity of illness and anxiety level, meaning that the more severe the illness was, the higher the patient's anxiety level. Because the predictor variables are moderately positively correlated, we might end up with multicollinearity in the problem.
+
+6.15 c.
+```{r}
+names(df) <- c("Y", "X1", "X2", "X3")
+lm0 <- lm(Y ~ X1 + X2 + X3, data=df)
+lm0
+```
+
+$b_{2}$ interpretation: as "Severity of Illness" has unit increases, the mean "Satisfaction" decreases by -0.442 if "Patient Age (Years)" and "Anxiety Level" are held constant.
+
+6.15 d.
+```{r}
+ones <- rep(1, length(df$X1))
+X <- cbind(ones, df$X1, df$X2, df$X3)
+X_t <- t(X)
+b <- solve(X_t %*% X) %*% (X_t %*% df$Y)
+e <- df$Y - (X %*% b)
+boxplot(e)
+```
+There don't appear to be any big outliers in the residuals for this model; the box-plot is fairly symmetric.
+
+6.15 e.
+```{r}
+library("scatterplot3d")
+plot(x=(X %*% b), y=e, xlab="Y_Hat", ylab="residuals", main="Residuals vs Y_Hat")
+
+plot(x=df$X1, y=e, xlab="Patient Age", ylab="residuals", main="Residuals vs Patient Age")
+
+plot(x=df$X2, y=e, xlab="Severity of Illness", ylab="residuals", main="Residuals vs Severity of Illness")
+
+plot(x=df$X3, y=e, xlab="Anxiety Level", ylab="residuals", main="Residuals vs Anxiety Level")
+
+scatterplot3d(df$X1, df$X2, e, xlab="X1", ylab="X2", zlab="Residuals")
+
+scatterplot3d(df$X1, df$X3, e, xlab="X1", ylab="X3", zlab="Residuals")
+
+scatterplot3d(df$X2, df$X3, e, xlab="X2", ylab="X3", zlab="Residuals")
+
+degrees_freedom <- length(df$X1) - 4
+
+sse <- t(df$Y) %*% df$Y - t(b) %*% X_t %*% df$Y
+mse <- sse / degrees_freedom
+e <- as.vector(e)
+mse <- as.vector(mse)
+sorted_residuals <- sort(e)
+k <- 1:length(e)
+
+expected <- sqrt(mse) * qnorm((k-0.375)/(length(e)+0.25))
+
+plot(expected, sorted_residuals, xlab="Expected", ylab="Residual", main="Normal Probability Plot")
+```
+
+From the plot of residuals vs $\hat Y$ we can see that the residuals are fairly random with but may not have constant variance. From the plots of residuals versus the predictor variables we don't see any big patterns. Meanwhile, the normal probability plot shows that the residuals have somewhat long tails in both directions.
+
+6.15 f.
+```{r}
+library("alr3")
+duplicated(df[,-1])
+lm1 <- lm(Y ~ X1 + X2 + X3, data=df)
+anova <- pureErrorAnova(lm1)
+anova
+```
+It is possible to conduct a lack of fit test because there is one repeated observation, however, it would not be recommended.
+
+6.15 g.
+```{r}
+residuals_squared <- e^2
+
+lm2 <- lm(residuals_squared ~ df$X1 + df$X2 + df$X3)
+
+yhat <- lm2$coefficients[1] + lm2$coefficients[2] * df$X1 + 
+  lm2$coefficients[3] * df$X2+ lm2$coefficients[4] * df$X3
+
+sse <- sum(residuals_squared)
+
+ssr <- sum((yhat - mean(yhat))^2)
+
+bp_test_statistic <- (ssr/2) / (sse/length(residuals_squared))^2
+
+critical_value <- qchisq(0.99, 3)
+
+bp_test_statistic
+critical_value
+```
+
+Alternatives: $H_{0}: \gamma_{1} = \gamma_{2} = \gamma_{3} = 0, H_{a}: \textrm{At least one of } \gamma_{1}, \gamma_{2}, \gamma_{3} \neq 0$.
+Decision Rule: When $\chi^{2}_{BP} \leq \chi^{2}(0.99, 3)$, we reject the alternative, otherwise if $\chi^{2}_{BP} > \chi^{2}(0.99, 3)$, we reject the null.
+Conclusion: The BP test statistic, $\chi^{2}_{BP}$ is equal to 1.25157 while the critical value, $\chi^{2}(0.99, 3)$ is 11.34487, which means that we do not reject $H_{0}$, so we can't reject the assumption that the error variance is constant.

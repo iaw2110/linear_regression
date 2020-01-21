@@ -1,0 +1,103 @@
+---
+title: "Linear Regression HW 1"
+author: "Ivan Wolansky"
+date: "September 6, 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+Question 1.19 a.
+
+```{r}
+df <- read.table("CH01PR19.txt", header = FALSE, col.names = c("GPA", "ACT"))
+
+b1 = sum((df$ACT - mean(df$ACT)) * (df$GPA - mean(df$GPA))) / sum((df$ACT - mean(df$ACT))^2)
+b0 = mean(df$GPA) - b1 * mean(df$ACT)
+
+b1
+b0
+```
+
+The estimated regression function is $\widehat{Y} = 2.114049 + 0.03382713X$ where $\beta_{0} = 2.114049 \textrm{ and } \beta_{1} = 0.03382713$.
+
+Question 1.19 b.
+
+```{r}
+library(ggplot2)
+
+ggplot(data = df) +
+  geom_point(mapping = aes(ACT, GPA)) + 
+  geom_line(mapping = aes(ACT, ACT*b1+b0)) +
+  labs(title = "Student GPA vs ACT Score")
+```
+
+The regression function does not seem to fit the data that well since the data is so spread out.
+
+Question 1.19 c.
+
+```{r}
+linear_estimator <- function(ACT) {
+  return(b0 + b1 * ACT)
+}
+
+estimate_30 <- linear_estimator(30)
+estimate_30
+```
+The point estimate using ACT = 30 in the linear model is GPA = 3.278863.
+
+Question 1.19 d.
+
+```{r}
+estimate_31 <- linear_estimator(31)
+estimate_31
+change <- estimate_31 - estimate_30
+change
+```
+The point estimate change using ACT = 31 instead of 30 in the linear model is 0.03882713.
+
+Question 1.42 a.
+
+The likelihood function for the 6 observations is: $L(\beta_{1}, \sigma^{2}=16) = \dfrac{1}{(32 \pi )^{3}}exp(-\dfrac{1}{32}\sum_{i=1}^{6}(Y_{i}-\beta_{1}X_{i})^{2})$
+
+Question 1.42 b.
+
+```{r}
+df <- read.table("CH01PR42.txt", header = FALSE, col.names = c("Y", "X"))
+
+likelihood_estimator <- function(beta_1) {
+  return((1/(32 * pi)^3)*exp(-1/32 * sum((df$Y - beta_1 * df$X)^2)))
+}
+
+likelihood_17 <- likelihood_estimator(17)
+likelihood_17
+
+likelihood_18 <- likelihood_estimator(18)
+likelihood_18
+
+likelihood_19 <- likelihood_estimator(19)
+likelihood_19
+```
+
+Of these 3 values,he likelihood function is largest for $\beta_{1} = 18$.
+
+
+Question 1.42 c.
+
+```{r}
+b1 <- sum(df$X * df$Y) / sum(df$X^2)
+b1
+```
+
+This estimate is consistent with the result in part (b), as the largest value in (b) was associated with 18, and the MLE is 17.9285, which is very close to 18.
+
+Question 1.42 d.
+
+```{r}
+beta_list = seq(17, 19, 0.0001)
+plot(beta_list, sapply(beta_list, likelihood_estimator), main="Plot of Likelihood Function", xlab = "Value of Beta_1", ylab = "Value of Likelihood Function")
+abline(v=beta_list[which(sapply(beta_list, likelihood_estimator) == max(sapply(beta_list, likelihood_estimator)))], col="green")
+print(beta_list[which(sapply(beta_list, likelihood_estimator) == max(sapply(beta_list, likelihood_estimator)))])
+```
+
+The maximum of the likelihood function graph has an x value = 17.9285, which is the same as the value computed in (c).

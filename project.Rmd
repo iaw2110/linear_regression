@@ -1,0 +1,298 @@
+---
+title: "Project"
+author: "Ivan Wolansky and Samir Hadzic"
+date: "11/26/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(stringr)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(qdap)
+library(dummies)
+library(glmnet)
+library(caret)
+library(ROCR)
+library(reshape2)
+library(mltools)
+```
+
+```{r}
+cols <- c('last_name',
+          'first_name',
+          'middle_name',
+          'suffix',
+          'res_number',
+          'fracional_address',
+          'res_apt',
+          'predirection',
+          'street_name',
+          'postdirection',
+          'city',
+          'zipcode',
+          'zipcode_extension',
+          'mailing1',
+          'mailing2',
+          'mailing3',
+          'mailing4',
+          'dob',
+          'gender',
+          'party',
+          'other_party',
+          'county_code',
+          'election_district',
+          'legislative_district',
+          'town_city',
+          'ward',
+          'congressional_district',
+          'senate_district',
+          'assembly_district',
+          'last_date_voted',
+          'last_year_voted',
+          'last_county_voted',
+          'last_registered_address',
+          'last_registered_name',
+          'county_voter_registration_number',
+          'application_date',
+          'application_source',
+          'id_required',
+          'id_requirement_flag',
+          'voter_status',
+          'status_reason_code',
+          'inactive_date',
+          'purge_date',
+          'voter_id',
+          'voter_history')
+
+voters <- read.table('voters.txt', sep = ',', header = F, col.names = cols)
+```
+
+
+```{r}
+test <- voters
+
+cleaning <- function(df, cols_to_keep) {
+  
+  df <- df[df$voter_status != 'PREREG',]
+  df <- as.data.frame(apply(X = df, MARGIN = 2, str_trim, side = 'both'))
+  df[ , c('zipcode', 'zipcode_extension')] <- sapply(df[, c('zipcode', 'zipcode_extension')], as.numeric)
+  df$gender <- ifelse(df$gender == 'M', 1, 0)
+  df$dob <- as.Date(df$dob, '%Y%m%d')
+  df$application_date <- as.Date(df$application_date, '%Y%m%d')
+  df$purge_date <- as.Date(df$purge_date, '%Y%m%d')
+  df$party <- as.character(df$party)
+  df$party <- ifelse(df$party == 'SAM', 'OTH', df$party)
+  df$voter_history <- as.character(df$voter_history)
+  df <- df[, cols_to_keep]
+  df <- cbind(df, dummy(df$party))
+  df <- df[, !(names(df) %in% "party")]
+  df <- df[!duplicated(df$voter_id), ]
+  colnames(df) <- c(names(df[1:7]), sub("test", "", names(df[8:16])))
+
+  return(df)
+}
+
+test <- cleaning(df = test, cols_to_keep = c('voter_id',
+                                                  'dob',
+                                                  'gender',
+                                                  'party',
+                                                  'application_date',
+                                                  'voter_status',
+                                                  'purge_date',
+                                                  'voter_history'))
+
+```
+
+```{r}
+test$voter_history <- str_to_lower(as.character(test$voter_history))
+test$voter_history <- gsub("\\s+", " ", test$voter_history)
+
+test$voter_history <- sapply(test$voter_history, 
+             mgsub, 
+             pattern = c('general election', 'primary election', 'pe', 'presidential primary'),
+             replacement = c('ge', 'pr', 'pr', 'pp'))
+```
+
+```{r}
+new_test <- cbind(test$voter_history,mtabulate(strsplit(as.character(test$voter_history), ';')))
+```
+
+```{r}
+new_test <- new_test[, grep("(ge|pr|pp)", colnames(new_test))]
+new_test <- new_test[, -grep("city|sprcial", colnames(new_test))]
+years <- unlist(sapply(names(new_test), str_extract, pattern = '[0-9]{4}'))
+strings <- unlist(sapply(names(new_test), str_extract, pattern = '(ge|pr|pp)'))
+colnames(new_test) <- paste(years, strings, sep="_")
+head(new_test)
+```
+
+```{r}
+aggr <- as.data.frame(do.call(cbind, by(t(new_test),INDICES=names(new_test),FUN=colSums)))
+```
+
+```{r}
+new_elections <- aggr[, -grep("NA|3812", colnames(aggr))]
+head(new_elections)
+```
+
+```{r}
+new_df <- cbind(test, new_elections)
+new_df <- new_df[, !(names(new_df) %in% "voter_history")]
+```
+
+```{r}
+new_df$purge_date <- sapply(new_df$purge_date, str_extract, pattern = '[0-9]{4}')
+new_df$dob <-  sapply(new_df$dob, str_extract, pattern = '[0-9]{4}')
+```
+
+```{r}
+colnames(new_df) <- c(names(new_df[1:16]), sub("X", "", names(new_df[17:65])))
+head(new_df)
+```
+
+```{r}
+new_df <- cbind(test, new_df[, 17:65])
+new_df <- new_df[, !(names(new_df) %in% "voter_history")]
+new_df$purge_date <- sapply(new_df$purge_date, str_extract, pattern = '[0-9]{4}')
+new_df$dob <-  sapply(new_df$dob, str_extract, pattern = '[0-9]{4}')
+head(new_df)
+```
+
+```{r}
+voters <- new_df
+```
+
+```{r}
+voters <- voters[, as.character(unname(unlist(read.delim('colnames', sep = ',')[1])))]
+voters$application_date <- as.numeric(str_extract(voters$application_date, '[0-9]{4}'))
+
+```
+
+```{r}
+year_idx <- grep('[0-9]{4}', colnames(voters)) # year columns
+years <- lapply(X = na.omit(str_extract(colnames(voters), '[0-9]{4}')), as.numeric)
+voters[, year_idx] <- lapply(X = voters[, year_idx], FUN = function(x) ifelse(x > 1, 1, x))
+
+for (i in 1:length(years)) {
+  ineligble_idx <- (voters$application_date > years[i])
+  voters[ineligble_idx, year_idx[i]] <- NA
+}
+
+voters$OTH <- ifelse(voters$CON == 1 | voters$GRE == 1 | voters$LBT == 1 | voters$WOR == 1, 1, voters$OTH)
+voters <- voters[is.na(voters$purge_date) & !is.na(voters$X2008_pp) & voters$dob > 1918, 
+                 !(colnames(voters) %in% c('purge_date', 'voter_status', 'application_date', 'CON', 'GRE', 'WOR', 'LBT'))]
+voters$dob <- scale(voters$dob)
+```
+
+```{r}
+var.heatmap <- function(df, vars) {
+  cormat <- round(cor(na.omit(df[, (colnames(df) %in% c(vars))])), 2)
+  # Use correlation between variables as distance
+  dd <- as.dist((1 - cormat)/2)
+  hc <- hclust(dd)
+  cormat <- cormat[hc$order, hc$order]
+  cormat[lower.tri(cormat)] <- NA
+  melted_cormat <- melt(cormat, na.rm = TRUE)
+  heat_plot <- ggplot(melted_cormat, aes(Var2, Var1, fill = value)) +
+    geom_tile(color = "white") +
+    scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                         midpoint = 0, limit = c(-1,1), space = "Lab",
+                         name = "Pearson\nCorrelation") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0, size = 7, hjust = 1),
+          axis.text.y = element_text(size = 7)) +
+    coord_fixed()
+  return(heat_plot) # feel free to change if you want it to return the cor matrix instead
+}
+
+var.heatmap(df = voters, vars = colnames(voters))
+```
+
+```{r}
+train_split <- sample(x = 1:nrow(voters), size = floor(nrow(voters) * 0.8), replace = F)
+train <- voters[train_split, ]
+test <- voters[-train_split, ]
+X_train <- model.matrix(X2018_ge~., data = train)
+Y_train <- train$X2018_ge
+```
+
+```{r}
+alpha <- 0 # 1 = lasso, 0 = ridge regression
+
+cv_auc_out <- cv.glmnet(x = X_train,
+                    y = Y_train,
+                    alpha = alpha,
+                    type.measure = 'auc',
+                    nfolds = 5,
+                    family = 'binomial')
+
+cv_auc_out$lambda.min
+coef(cv_auc_out, s = cv_auc_out$lambda.min)
+```
+
+```{r}
+
+plot(cv_auc_out)
+
+```
+
+```{r}
+X_test <- model.matrix(X2018_ge~., test)
+Y_test <- test$X2018_ge
+
+probabilities <- as.data.frame(predict(cv_auc_out, s = 'lambda.min', newx = X_test, type = 'response'))
+
+predictions <- prediction(probabilities, Y_test)
+```
+
+```{r}
+model_acc <- performance(predictions, measure = 'acc')
+acc_cutoff <- unlist(model_acc@x.values)[unlist(model_acc@y.values) == max(unlist(performance(predictions, measure = 'acc')@y.values))]
+max(acc_cutoff)
+plot(model_acc)
+```
+
+
+```{r}
+sens <- data.frame(x = unlist(performance(predictions, "sens")@x.values), 
+                   y = unlist(performance(predictions, "sens")@y.values))
+
+spec <- data.frame(x = unlist(performance(predictions, "spec")@x.values), 
+                   y = unlist(performance(predictions, "spec")@y.values))
+
+ggplot() + 
+  geom_line(data = sens, aes(x,y)) + 
+  geom_line(data = spec, aes(x,y, col = "red")) +
+  scale_y_continuous(sec.axis = sec_axis(~., name = "Specificity")) +
+  labs(x = 'Cutoff', y = "Sensitivity") +
+  theme(axis.title.y.right = element_text(colour = "red"), legend.position = "none")
+```
+
+```{r}
+
+spec <- as.data.frame(apply(spec, 2, round, 2))
+sens <- as.data.frame(apply(sens, 2, round, 2)) 
+sens_spec_cutoff <- max(spec[spec$x == sens$x & spec$y == sens$y,]$x)
+paste('cutoff value:' , sens_spec_cutoff)
+
+opt_predictions <- ifelse(probabilities > sens_spec_cutoff, 1, 0)
+
+model <- ifelse(alpha == 1, 'LASSO', 'Ridge')
+cat("The accuracy of the", model, "model is:", mean(test$X2018_ge == opt_predictions)*100, "%.\n")
+
+confusionMatrix(data = as.factor(opt_predictions), reference = as.factor(test$X2018_ge))
+
+paste('matthews correlation coefficient: ', mcc(preds = as.factor(opt_predictions), actuals = as.factor(test$X2018_ge)))
+nrow(voters)
+```
+
+```{r}
+model_roc = performance(predictions, measure = "tpr", x.measure = "fpr")
+plot(model_roc)
+abline(a = 0, b = 1)
+auc.perf = performance(predictions, measure = "auc")
+auc.perf@y.values
+```

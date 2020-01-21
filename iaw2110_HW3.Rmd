@@ -1,0 +1,133 @@
+---
+title: "Homework 3"
+author: "Ivan Wolansky"
+date: "October 2, 2019"
+output: pdf_document
+---
+
+3.4 a.
+```{r}
+df_copier <- read.table("CH03PR04.txt", header = FALSE, col.names = c("Y_i", "X_i", "X_2", "X_3"))
+
+dotchart(df_copier$X_i, main="Number of Copiers Serviced", color="red")
+```
+This plot displays the number of instances of a certain number of copiers being serviced. i.e. there were 4 times that 1 copier was serviced, 8 times that 2 were serviced...etc. There appear to be no outlying cases because the range is evenly distributed.
+
+3.4 d.
+```{r}
+lm0 <- lm(Y_i ~ X_i, data=df_copier)
+
+residuals <- df_copier$Y_i - lm0$coefficients[1] - lm0$coefficients[2]*df_copier$X_i
+yhat <- lm0$coefficients[1] + lm0$coefficients[2] * df_copier$X_i
+
+plot(yhat, residuals, main="Residuals vs Y-Hat", xlab="Y-Hat", ylab="Residual")
+
+plot(df_copier$X_i, residuals, main="Residuals vs X_i", xlab="X_i", ylab="Residual")
+
+```
+These plots provide the same exact information i.e. residual variance is consistent with change in X and $\hat Y$. Constant variance of residuals was not violated in this linear regression model, but both plots do show the potential presence of outliers. Almost all the residuals are between about 14 and -15, but there are two that are about -20, which means that they need to be further analyzed.
+
+3.4 e.
+```{r}
+degrees_freedom <- length(df_copier$X_i) - 2
+
+mse <- sum(residuals^2) / degrees_freedom
+
+sorted_residuals <- sort(residuals)
+k <- 1:length(residuals)
+
+expected <- sqrt(mse) * qnorm((k-0.375)/(length(residuals)+0.25))
+plot(expected, sorted_residuals, xlab="Expected", ylab="Residual", main="Normal Probability Plot")
+
+sxy <- sum((expected - mean(expected)) * (sorted_residuals - mean(sorted_residuals)))
+
+sxx <- sum((expected - mean(expected))^2)
+syy <- sum((sorted_residuals - mean(sorted_residuals))^2)
+correlation <- sxy/sqrt(sxx*syy)
+correlation
+```
+Normality does appear to be tenable because the correlation coefficient under normality is 0.9891021. Using table B.6, with $\alpha = 0.1$ and n = 45, we get that the critical value for correlation between ordered residuals and expected values using normality is 0.979. 0.981 > 0.979, so it ultimately is a reasonable assumption.
+
+
+3.4 g.
+```{r}
+residuals_squared <- residuals^2
+
+lm1 <- lm(residuals_squared~df_copier$X_i)
+
+ssto <- sum((residuals_squared - mean(residuals_squared))^2)
+
+sse <- sum((residuals_squared - (lm1$coefficients[1] + lm1$coefficients[2]*df_copier$X_i))^2)
+
+ssr <- ssto - sse
+
+bp_test_statistic <- (ssr/2) / (sum(residuals_squared)/length(residuals_squared))^2
+
+critical_value <- qchisq(0.95, 1)
+
+p_value <- 1 - pchisq(bp_test_statistic, 1)
+
+bp_test_statistic
+critical_value
+p_value
+```
+Alternatives: $H_{0}: \gamma_{1} = 0, H_{a}: \gamma_{1} \neq 0$.
+Decision Rule: When $X^{2}_{BP} \leq X^{2}(0.95, 1)$, we reject the alternative, otherwise if $X^{2}_{BP} > X^{2}(0.95, 1)$, we reject the null.
+Conclusion: The BP test statistic, $X^{2}_{BP}$ is equal to 1.31468 while the critical value, $X^{2}(0.95, 1)$ is 3.841459, which means that we conclude $H_{0}$, that the error variance is constant. The p-value of this test is 0.2515491 which means that the data is consistent with constancy of error variance.
+
+3.4 h.
+```{r}
+plot(df_copier$X_2, residuals, xlab="Mean Operational Age of Copiers Serviced", ylab="Residuals", 
+     main="Residuals vs Mean Operational Age of Copiers Serviced")
+plot(df_copier$X_3, residuals, xlab="Years of Experience", ylab="Residuals", 
+     main="Residuals vs Years of Experience")
+```
+Residuals vs Mean Operational Age of Copiers Serviced (X2) shows that there's a positive correlation between mean operational age and residuals, which could mean that the model could be improved if X2 is included. Residuals vs Years of Experience shows nothing special that would indicate that adding X3 would improve the model's fit.
+
+3.17 a.
+```{r}
+df_marketing <- read.table("CH03PR17.txt", header = FALSE, col.names = c("Y_i", "X_i"))
+
+plot(df_marketing$X_i, df_marketing$Y_i, xlab="Year (Coded)", ylab="Sales (in thousands)", 
+     main="Sales vs Year", col="red")
+```
+A linear relation appears like it could possibly be adequate here.
+
+3.17 c.
+```{r}
+y_transform <- sqrt(df_marketing$Y_i)
+lm2 <- lm(y_transform ~ df_marketing$X_i)
+lm2
+```
+The estimated linear regression function for the transformed data is $\hat Y' = 10.261 + 1.076X$.
+
+3.17 d.
+```{r}
+plot(df_marketing$X_i, y_transform, xlab="Year (Coded)", ylab="Square Root of Sales (in thousands)", 
+     main="Square Root of Sales vs Year", col="red")
+abline(lm2, col="blue")
+```
+This regression line appears to be a good fit for the transformed data.
+
+3.17 e.
+```{r}
+residuals <- y_transform - lm2$coefficients[1] - lm2$coefficients[2] * df_marketing$X_i
+
+fitted_values <- 10.261 + 1.076 * df_marketing$X_i
+plot(fitted_values, residuals, xlab="Fitted Values", ylab="Residuals", 
+     main="Residuals vs Fitted Values", col="red")
+
+degrees_freedom <- length(residuals) - 2
+
+mse <- sum(residuals^2) / degrees_freedom
+
+sorted_residuals <- sort(residuals)
+k <- 1:length(residuals)
+
+expected <- sqrt(mse) * qnorm((k-0.375)/(length(residuals)+0.25))
+plot(expected, sorted_residuals, xlab="Expected", ylab="Residual", 
+     main="Normal Probability Plot", col="red")
+```
+Residuals vs Fitted Values plot shows that the error in the linear regression lines up with differences between expected and observed values i.e. the residuals show the randomness that is expeceted.
+
+The Normal Probability Plot helps us realize that the standardized residuals are normally distributed. They don't line up perfectly along y=x but typically follow a line, which means that the residuals are normlly distributed.

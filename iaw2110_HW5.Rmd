@@ -1,0 +1,79 @@
+---
+title: "Homework 5"
+author: "Ivan Wolansky"
+date: "11/3/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+7.5 a.
+```{r}
+df <- read.table("CH06PR15.txt", header = FALSE, col.names = c("Y", "X1", "X2", "X3"))
+
+lm0 <- lm(Y ~ X2, data=df)
+lm1 <- lm(Y ~ X1 + X2, data=df)
+lm2 <- lm(Y ~ X1 + X2 + X3, data=df)
+
+ssr_X1X2X3 <- anova(lm2)$"Sum Sq"[1] + anova(lm2)$"Sum Sq"[2] + anova(lm2)$"Sum Sq"[3]
+msr_X1X2X3 <- ssr_X1X2X3 / 3
+
+ssr_X2 <- anova(lm0)$"Sum Sq"[1]
+msr_X2 <- ssr_X2
+
+ssr_X1_X2 <- (anova(lm1)$"Sum Sq"[1] + anova(lm1)$"Sum Sq"[2]) - ssr_X2
+msr_X1_X2 <- ssr_X1_X2
+
+ssr_X3_X2X1 <- ssr_X1X2X3 - (anova(lm1)$"Sum Sq"[1] + anova(lm1)$"Sum Sq"[2])
+msr_X3_X2X1 <- ssr_X3_X2X1
+
+sse <- anova(lm2)$"Sum Sq"[4]
+mse <- anova(lm2)$"Mean Sq"[4]
+
+ssto <- ssr_X1X2X3 + sse
+
+rows <- c("Regression", "X2", "X1|X2", "X3|X2, X1", "Error", "Total")
+cols <- c("Source of Variation", "SS", "df", "MS")
+ss <- c(ssr_X1X2X3, ssr_X2, ssr_X1_X2, ssr_X3_X2X1, sse, ssto)
+degrees_freedom <- c(3, 1, 1, 1, nrow(df) - 4, nrow(df) - 1)
+ms <- c(msr_X1X2X3, msr_X2, msr_X1_X2, msr_X3_X2X1, mse, NA)
+
+anova_table <- data.frame(rows, ss, degrees_freedom, ms)
+colnames(anova_table) <- cols
+anova_table
+```
+
+7.5 b.
+```{r}
+f_test_statistic <- anova_table$MS[4] / anova_table$MS[5]
+f_test_statistic
+
+critical_value <- qf(1 - 0.025, 1, anova_table$df[5])
+critical_value
+
+p_value <- 1 - pf(f_test_statistic, 1, anova_table$df[5])
+p_value
+```
+Alternatives: $H_{0}: \beta_{3} = 0, H_{a}: \beta_{3} \neq 0$\newline
+Decision Rule: When $F^{*} \leq F(0.975, 1, 42)$, we reject the alternative, otherwise if $F^{*} > F(0.975, 1, 42)$, we reject the null.\newline
+Conclusion: The F-test statistic, $F^{*}$ is equal to 3.599735 while the critical value, $F(0.975, 1, 42)$ is 5.403859. Because $F^{*} \leq F(0.975, 1, 42)$, we do not reject $H_{0}$, ie $X_{3}$ can be dropped from the regression model that already contains $X_{1} \textrm{ and } X_{2}$. The p-value of this test is 0.06467813, which is greater than $\alpha = 0.025$, meaning that the p-value is consistent with our conclusion.
+
+7.6
+```{r}
+lm3 <- lm(Y ~ X1, data=df)
+ssr_X2X3_X1 <- anova_table$SS[1] - anova(lm3)$"Sum Sq"[1]
+msr_X2X3_X1 <- ssr_X2X3_X1 / 2
+
+f_test_statistic <- msr_X2X3_X1 / anova_table$MS[5]
+f_test_statistic
+
+critical_value <- qf(1 - 0.025, 2, anova_table$df[5])
+critical_value
+
+p_value <- 1 - pf(f_test_statistic, 2, anova_table$df[5])
+p_value
+```
+
+Alternatives: $H_{0}: \beta_{2} = \beta_{3} = 0, H_{a}: \textrm{not both } \beta_{2} \textrm{ and } \beta_{3} \textrm{ equal } 0$\newline
+Decision Rule: When $F^{*} \leq F(0.975, 2, 42)$, we reject the alternative, otherwise if $F^{*} > F(0.975, 2, 42)$, we reject the null.\newline
+Conclusion: The F-test statistic, $F^{*}$ is equal to 4.176803 while the critical value, $F(0.975, 2, 42)$ is 4.03271. Because $F^{*} > F(0.975, 1, 42)$, we reject $H_{0}$, ie $X_{2} \textrm{ and } X_{3}$ cannot both be dropped from the regression model that already contains $X_{1}$. The p-value of this test is 0.02216118, which is less than $\alpha = 0.025$, meaning that the p-value is consistent with our conclusion.

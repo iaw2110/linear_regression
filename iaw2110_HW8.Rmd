@@ -1,0 +1,141 @@
+---
+title: "Homework 8"
+author: "Ivan Wolansky"
+date: "11/29/2019"
+output: pdf_document
+---
+
+10.11 a.
+```{r}
+df <- read.table("CH06PR15.txt", header = FALSE, col.names = c("Y", "X1", "X2", "X3"))
+head(df)
+lm0 <- lm (Y ~ X1 + X2 + X3, data=df)
+H_diagonals <- hatvalues(lm0)
+
+X <- cbind(rep(1, length(df$X1)), df$X1, df$X2, df$X3)
+X_t <- t(X)
+X_tX <- X_t %*% X
+inverse_X_tX <- solve(X_tX)
+
+X_tY <- X_t %*% df$Y
+b <- inverse_X_tX %*% X_tY
+
+e <- df$Y - (X %*% b)
+sse <-sum(e^2)
+
+studentized_deleted <- e*sqrt((length(df$X1)-length(b)-1)/(sse*(1-H_diagonals)-e^2))
+studentized_deleted
+sort(studentized_deleted)
+
+critical_value <- qt(1-(0.1/(2*length(df$X1))), length(df$X1)-length(b)-1)
+abs(studentized_deleted) <= critical_value
+```
+At first glance, -1.97420208, -1.76941642, 1.80674229, and 1.83584564 may be outlying Y observations, but a Bonferroni outlier test must be conducted to be sure.
+
+Alternatives: $H_{0}: t_{i}$ is not an outlier, $H_{a}: t_{i}$ is an outlier.
+Decision Rule: When $|t_{i}| \leq t(0.9989, 41)$, we reject the alternative and find that $t_{i} is not an outlier.
+Conclusion: Each absolute value of $t_{i}$ is less than or equal to the critical value, so we conclude that there are no outliers.
+
+10.11 b.
+```{r}
+H_diagonals
+mean_leverage <- length(b)/length(df$X1)
+H_diagonals > 2 * mean_leverage
+```
+X observations 9, 28, and 39 appear to be outlying X observations because they are larger than twice the mean leverage value.
+
+10.11 c.
+```{r}
+X_new <- c(1, 30, 58, 2.0)
+X_new_t <- t(X_new)
+H_new <- X_new_t %*% inverse_X_tX %*% X_new
+H_new
+range(H_diagonals)
+```
+This estimate will involve a hidden extrapolation because it is not within the range of leverage values of $h_{ii}$.
+
+10.11 d.
+```{r}
+dffits <- studentized_deleted * sqrt(H_diagonals/(1-H_diagonals))
+c(dffits[11], dffits[17], dffits[27])
+
+dfbetas(lm0)
+
+mse <- sse / (length(df$X1)-length(b))
+cook <- (e^2/(length(b)*mse)) * (H_diagonals/(1-H_diagonals)^2)
+relevant_cooks <- c(cook[11], cook[17], cook[27])
+relevant_cooks
+for (i in 1:length(relevant_cooks)) {
+  print(pf(relevant_cooks[i], length(b), length(df$X1)-length(b)))
+}
+```
+11, 17, and 27 have DFFITS 0.5688200, 0.6657370, and -0.6087397 respetively, which are all below 1, meaning that it is not influential according to this metric. 
+
+11 has DFBETAS 0.0991076408, -0.363089223, -0.1899886913, and 0.3899851559. 17 has DFBETAS -0.4491347867, -0.471110889, 0.4432301688, and 0.0892699630. 27 has DFBETAS -0.0172343213, 0.417182739 -0.2498613962, and 0.1613648361. Their absolute values are all less than 1, so none of these are influential cases.
+
+Finally, 11, 17, and 27 have Cook's Distance 0.07656783, 0.10513344, and 0.08666240 respectively, and because their percentiles are 0.01099607, 0.01990335, and 0.01388469 respectively, we determine that these cases have little apparent influence on the fitted values.
+
+10.11 e.
+```{r}
+without_11 <- df[-11,]
+rownames(without_11) <- 1:length(without_11$X1)
+
+without_17 <- df[-17,]
+rownames(without_11) <- 1:length(without_17$X1)
+
+without_27 <- df[-27,]
+rownames(without_11) <- 1:length(without_27$X1)
+
+lm1 <- lm(Y ~ X1 + X2 + X3, data=without_11)
+lm2 <- lm(Y ~ X1 + X2 + X3, data=without_17)
+lm3 <- lm(Y ~ X1 + X2 + X3, data=without_27)
+
+find_y_hats <- function(linear.model, values) {
+  y_hats <- linear.model$coefficients[1] +
+    linear.model$coefficients[2] * values$X1 +
+    linear.model$coefficients[3] * values$X2 +
+    linear.model$coefficients[4] * values$X3
+  return(y_hats)
+}
+all_y_hats <- find_y_hats(lm0, df)
+without_11_y_hats <- find_y_hats(lm1, df)
+without_17_y_hats <- find_y_hats(lm2, df)
+without_27_y_hats <- find_y_hats(lm3, df)
+
+avg_abs_pct_diff <- function(y_without, y_hats, n) {
+  return((sum(abs((y_without-y_hats)/y_hats))*100)/n)
+}
+
+avg_abs_pct_diff(without_11_y_hats, all_y_hats, length(df$X1))
+avg_abs_pct_diff(without_17_y_hats, all_y_hats, length(df$X1))
+avg_abs_pct_diff(without_27_y_hats, all_y_hats, length(df$X1))
+
+```
+The mean differences for 11, 17, and 27 are 1.10094, 1.32493, and 1.12205 respectively. This evidence shows that these cases do not exercise undue influence; no remedial action is required to handle them.
+
+10.11 f.
+```{r}
+plot(cook, main="Index Plot of Cook's Distance", ylab = "Cook's Distance", col="blue")
+```
+
+This index plot indicates that none of the cases are influential.
+
+11.1
+
+It is not true to say that violation of nonconstancy of error variance invalidates the regression model. The line still presents a meaningful measure between the observations. Additionally, it is possible to remedy this issue by using weighted least squares.
+
+11.2
+
+It is not true to say that robust regression automatically guards against outlying and influential cases in all situations, rather it is used when there is no other way to remedy the outliers or their influence. However, robust regression does reduce the influence of the outliers and influential observations on the rest of the model
+
+11.3
+
+The problem with having many predictors and a small sample size in Lowess Regression is that when you continue to increase the number of predictors, the number of cases in the neighborhood decreases, leading to more and more erratic smoothing. If you have a small sample size, this problem is even worse because the number of cases is small the entire time, which means that you have erratic smoothing throughout, which is only exacerbated as more predictors are used. Additionally, a small sample size means that it will be hard to generalize the model.
+
+11.4
+
+When there are many predictors and a small sample size in a regression tree, the computational time to determine the best region, split point, and best predictor is extremely high, and additionally it can lead to overfitting. The issue with having a small sample size is that you will not be able to learn much about the data that you have, and therefore the model will not be easily generalizable because it will be overfitted.
+
+11.5
+
+In order to use the bootstrapping method to find the confidence intervals for a ridge regression, you could use the reflection method. Essentially, we would sample the original sample n times and for each one we could compute our regression coefficients $b^{*}_{i}$e. This means that after the regression coefficients were found you could compute the confidence intervals using: $b_{i}-b^{*}_{i}(1-\alpha/2)-b_{i} \leq \beta_{i} \leq b_{i} + b_{i} - b^{*}_{i}(\alpha/2)$.

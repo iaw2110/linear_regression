@@ -1,0 +1,193 @@
+---
+title: "Homework 2"
+author: "Ivan Wolansky"
+date: "September 30, 2019"
+output: pdf_document
+---
+
+2.6 a.
+```{r}
+df_airfreight = read.table("CH01PR21.txt", header = FALSE, col.names = c("Y", "X"))
+
+mean_x <- mean(df_airfreight$X)
+mean_y <- mean(df_airfreight$Y)
+
+sxx <- sum((df_airfreight$X - mean_x)^2)
+sxy <- sum((df_airfreight$X - mean_x)*(df_airfreight$Y - mean_y))
+
+b1 = sxy / sxx
+b0 = mean_y - b1 * mean_x
+
+sse <- sum((df_airfreight$Y - (b0 + b1 * df_airfreight$X))^2)
+
+degrees_freedom <- length(df_airfreight$X) - 2
+
+mse <- sse / degrees_freedom
+sb1 <- sqrt(mse/sxx)
+
+t <- qt(0.025, degrees_freedom)
+
+conf_bottom_b1 <- b1 - abs(t)*sb1
+conf_bottom_b1
+
+conf_top_b1 <- b1 + abs(t)*sb1
+conf_top_b1
+```
+The 95% confidence interval is 2.918388 to 5.081612, meaning that if we gathered the data from different random samples multiple times, then 95% of the time, the true $\beta_{1}$ would be inside the interval.
+
+2.6 b.
+```{r}
+# finding t* test statistic
+t_airfreight <- (b1 - 0) / sb1
+
+t_airfreight
+
+# finding p-value
+2*pt(-abs(t_airfreight), df=degrees_freedom)
+```
+$H_{0}:\beta_{1} = 0, H_{a}:\beta_{1} \neq 0$
+The test statistic is 8.528029.
+The decision rule is reject $H_{0}$ if t > 2.306004, or reject $H_{0}$ if our p-value < 0.05.
+Our conclusion is that there is evidence that we should reject the null hypothesis because the p-value is 0.000027 which is less than 0.05.
+
+2.6 c.
+
+```{r}
+sb0 <- sqrt(mse * ((1/length(df_airfreight$X)) + ((mean_x^2)/sxx)))
+
+# finding t
+t <- qt(0.025, degrees_freedom)
+
+#finding confint
+conf_bottom_b0 <- b0 - abs(t)*sb0
+conf_bottom_b0
+
+conf_top_b0 <- b0 + abs(t)*sb0
+conf_top_b0
+```
+
+The 95% confidence interval is 8.67037 to 11.72963, meaning that if we gathered the data from different random samples multiple times, then 95% of the time, the true $\beta_{0}$ would be inside the interval.
+
+2.6 d.
+
+No transfers made implies $\beta_{1} = 0$. Therefore, $H_{0}:\beta_{0} \leq 9, H_{a}:\beta_{0} > 9$
+
+```{r}
+t_consultant <- (b0 - 9)/ sb0
+# calculating t* test statistics
+t_consultant
+
+# finding p-value
+pt(-abs(t_consultant), df=degrees_freedom)
+```
+The test statistic is 1.809068.
+The decision rule is reject $H_{0}$ if t > 2.306004, or reject $H_{0}$ if our p-value < 0.025.
+We do not reject the null hypothesis because the p-value is 0.05402227 which is greater than 0.025.
+
+2.6 e.
+
+```{r}
+beta_1 <- 2
+sd_b1 <- 0.5
+
+delta <- abs(2 - 0) / sd_b1
+delta
+
+#computing power probability
+prob <- 0.94 + ((delta - 4) / (5-4)) * (0.99 - 0.94)
+prob
+
+beta_0 <- 11
+sd_b0 <- 0.75
+
+delta <- abs(11 - 9) / sd_b0
+delta
+
+#computing power probability
+prob <- 0.42 + ((delta - 2) / (3 - 2)) * (0.75 - 0.42)
+prob
+```
+Therefore, if $\beta_{1} = 2 \textrm{ and } \sigma \{b1\} = 0.5$ then the probability would be about 0.94 that we would be led to conclude $H_{a}$. Also, if $\beta_{0} = 11 \textrm{ and } \sigma \{b1\} = 0.75$ then the probability would be about 0.64 that we would be led to conclude $H_{a}$.
+
+2.23 a.
+
+```{r}
+df_gpas <- read.table("CH01PR19.txt", header = FALSE, col.names = c("GPA", "ACT"))
+
+mean_x <- mean(df_gpas$ACT)
+mean_y <- mean(df_gpas$GPA)
+
+sxx <- sum((df_gpas$ACT - mean_x)^2)
+sxy <- sum((df_gpas$ACT - mean_x)*(df_gpas$GPA - mean_y))
+
+b1 = sxy / sxx
+b0 = mean_y - b1 * mean_x
+
+# computing components of anova table
+ssr <- sum(((b0 + b1 * df_gpas$ACT) - mean_y)^2)
+
+sse <- sum((df_gpas$GPA - (b0 + b1 * df_gpas$ACT))^2)
+
+ssto <- sum((df_gpas$GPA - mean_y)^2)
+
+ss <- length(df_gpas$GPA) * mean_y^2
+
+sstou <- sum(df_gpas$GPA^2)
+
+msr <- ssr / 1
+
+mse <- sse / (length(df_gpas$ACT) - 2)
+
+ss_column <- c(ssr, sse, ssto)
+df_column <- c(1, length(df_gpas$ACT) - 2,length(df_gpas$ACT) - 1)
+ms_column <- c(msr, mse, NA)
+expected_ms_column <- c((sd(df_gpas$GPA)^2+b1^2*sum((df_gpas$ACT - mean_x)^2)), sd(df_gpas$GPA)^2, NA)
+modified_anova <- data.frame(ss_column, df_column, ms_column, expected_ms_column, row.names = c("Regression", "Error", "Total"))
+
+colnames(modified_anova) <- c("SS", "df", "MS", "Expected Value of MS")
+modified_anova
+aov(lm(GPA~ACT, data=df_gpas))
+```
+
+
+2.23 b.
+
+In my ANOVA table, MSR estimates $\sigma^{2} + \beta_{1}^{2}\sum(X_{i}-\bar X)^2$, MSE estimates $\sigma^{2}$, and MSR and MSE estimate the same quantity when $\beta_{1} = 0$.
+
+2.23 c.
+
+$H_{0}: \beta_{1}=0; H_{a}: \beta_{1} \neq 0$
+
+```{r}
+alpha <- 0.01
+# calculating F*
+f_test_statistic <- msr/mse
+f_test_statistic
+
+# calculating F(0.01, 1, 118)
+qf(1-alpha, 1, length(df_gpas$ACT) - 1)
+```
+Decision rule: When $F^{*} \leq F(0.99, 1, 118)$, we reject the alternative, otherwise, we reject the null.
+
+Because we get that $F^{*}$ (or 9.240243) is more than F(0.99, 1, 118) (or 6.852751), we reject the null and conclude that $\beta_{1} \neq 0$.
+
+2.23 d.
+
+```{r}
+relative_reduc <- ssr/ssto
+relative_reduc * 100
+```
+SSR (3.587846) is our absolute magnitude of reduction in variation of Y when we introduce X to the regression model. This relative reduction is $SSR/SSTO * 100 i.e. (3.587846 / 49.405454 * 100)$ which givues us the coefficient of determination which is 7.262044.
+
+2.23 e.
+
+```{r}
+r <- sqrt(relative_reduc)
+relative_reduc
+r
+```
+r = $+\sqrt{0.07262044} = +0.2694818$
+
+2.23 f.
+
+I think that $R^{2}$ has a more clear-cut operational interpretation because it accounts for the amount of variation that occurs in Y explained by X.
